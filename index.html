@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Crea tu cuento LAN | Laboratorio LCD</title>
+<style>
+:root{
+  --bg:#f7f7f4;
+  --ink:#252a26;
+  --muted:#737971;
+  --line:#d9ddd7;
+  --green:#4f7258;
+  --green-dark:#3f5d47;
+  --green-soft:#e9efe9;
+  --lcd:#18231a;
+  --lcd-text:#b9f2aa;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:Arial,Helvetica,sans-serif;
+}
+main{max-width:900px;margin:auto;padding:28px 24px 55px}
+.brand{font-size:14px;font-weight:700;margin-bottom:4px}
+.brand span{font-weight:400;color:var(--muted)}
+.kicker{
+  margin-top:30px;color:var(--green-dark);
+  font-size:12px;font-weight:700;letter-spacing:.08em
+}
+h1{
+  margin:8px 0 8px;font-size:clamp(34px,6vw,52px);
+  line-height:1.03;letter-spacing:-.035em;font-weight:700
+}
+.intro{margin:0;color:var(--muted);font-size:16px;line-height:1.5}
+.section{
+  border-top:1px solid var(--line);margin-top:34px;padding-top:24px
+}
+.section-head{display:flex;gap:14px;align-items:baseline}
+.num{font-size:12px;font-weight:700;color:var(--green-dark)}
+h2{font-size:19px;margin:0;font-weight:700}
+.desc{margin:5px 0 18px 30px;color:var(--muted);font-size:13px}
+.small{font-size:12px;color:var(--muted)}
+.lcd{
+  background:var(--lcd);color:var(--lcd-text);
+  border-radius:7px;padding:13px 9px;
+  font-family:"Courier New",monospace;font-weight:700;
+  font-size:16px;line-height:1.45;
+  box-shadow:inset 0 0 0 1px #304132;
+  width:max-content;max-width:100%;overflow:auto
+}
+.lcdline{width:20ch;min-height:1.45em;white-space:pre;margin:auto}
+.row{
+  display:flex;gap:12px;align-items:center;flex-wrap:wrap;
+  margin:10px 0
+}
+button{
+  border:1px solid #c6cdc6;background:transparent;color:var(--ink);
+  border-radius:7px;padding:8px 11px;font-size:13px;cursor:pointer
+}
+button:hover{border-color:var(--green)}
+button.primary{
+  background:var(--green-dark);border-color:var(--green-dark);color:#fff
+}
+button.active{background:var(--green-soft);border-color:#9aae9d;color:var(--green-dark)}
+button.danger{color:#765454}
+.tabs{display:flex;gap:5px;flex-wrap:wrap;margin:5px 0 13px}
+textarea,input,select{
+  border:1px solid #cbd1ca;border-radius:6px;background:#fff;
+  color:var(--ink);font:14px Arial,sans-serif;padding:8px
+}
+textarea{
+  display:block;width:100%;max-width:650px;min-height:90px;
+  font-family:"Courier New",monospace;line-height:1.4;resize:vertical
+}
+input[type=number]{width:125px}
+label{font-size:12px;font-weight:700;display:block;margin:11px 0 5px}
+.editor-preview{margin-top:12px}
+.hint{font-size:12px;color:var(--muted);margin-top:7px}
+.chars{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  gap:18px;max-width:650px
+}
+.char-title{font-size:12px;font-weight:700;margin-bottom:6px}
+.pixels{
+  display:grid;grid-template-columns:repeat(5,13px);
+  grid-template-rows:repeat(8,13px);gap:2px;
+  width:max-content;padding:4px;background:#253227;border-radius:4px
+}
+.pixel{
+  width:13px!important;height:13px!important;
+  min-height:13px!important;padding:0;border:0!important;
+  background:#39463b;border-radius:1px
+}
+.pixel.on{background:var(--lcd-text)}
+.figure{
+  margin:17px 0;display:grid;
+  grid-template-columns:repeat(20,12px);
+  grid-template-rows:repeat(4,12px);gap:1px;
+  width:max-content;padding:7px;
+  background:var(--lcd);border-radius:7px
+}
+.fdot{width:12px;height:12px;background:transparent}
+.fdot.on{background:var(--lcd-text)}
+.simulator{
+  display:flex;flex-direction:column;align-items:flex-start;gap:10px
+}
+.status{font-size:12px;color:var(--muted)}
+pre{
+  background:#18231a;color:#d9f0d3;padding:14px;border-radius:7px;
+  overflow:auto;max-height:440px;font:12px/1.5 "Courier New",monospace;
+  margin-top:12px
+}
+.code-note{font-size:12px;color:var(--muted);line-height:1.5}
+.footer{margin-top:35px;color:var(--muted);font-size:11px}
+@media(max-width:650px){
+ main{padding:22px 16px 45px}
+ .chars{grid-template-columns:repeat(2,1fr)}
+ .figure{transform-origin:left top;transform:scale(.82);margin-right:-55px}
+}
+
+.screen-editor{max-width:760px}
+.screen-editor-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px}
+.screen-badge{background:#e9f1e9;color:#46664e;border-radius:7px;padding:7px 12px;font-size:12px}
+.lcd-editor-wrap{
+  border:7px solid #294d3d;border-radius:9px;background:#e6f0d5;
+  padding:8px 9px 9px;display:inline-block;max-width:100%;
+  box-shadow:0 1px 0 rgba(0,0,0,.04)
+}
+.lcd-coordinates{display:grid;grid-template-columns:26px repeat(20,31px);font:12px Arial,sans-serif;color:#243c2d}
+.lcd-coordinates .corner{height:21px}
+.lcd-coordinates .colnum{text-align:center;height:21px;line-height:21px}
+.lcd-row{display:contents}
+.rownum{
+  width:26px;height:38px;display:flex;align-items:center;justify-content:center;
+  font:12px Arial,sans-serif;color:#243c2d
+}
+.lcd-cell{
+  width:31px;height:38px;border-left:1px solid #b4c9a4;border-top:1px solid #b4c9a4;
+  display:flex;align-items:center;justify-content:center;
+  font:34px/1 "Courier New",monospace;font-weight:400;color:#17251c;
+  outline:none;background:#e6f0d5;cursor:text
+}
+.lcd-cell:focus{background:#dcebc8;box-shadow:inset 0 0 0 2px #71917a}
+.screen-meta{display:flex;justify-content:flex-end;gap:18px;margin-top:6px;font-size:12px;color:#506056}
+.duration-line{display:flex;align-items:center;gap:8px;margin-top:14px;font-size:13px}
+.duration-line input{width:78px;padding:7px 9px}
+.duration-unit{color:#56635a}
+@media(max-width:850px){
+ .lcd-editor-wrap{overflow-x:auto;display:block}
+ .lcd-coordinates{width:max-content}
+}
+
+
+/* V4: editor de inicio y simulador físico */
+.start-editor{max-width:760px}
+.start-editor .lcd-editor-wrap{margin-top:8px}
+.real-lcd{width:min(760px,100%);background:linear-gradient(#333835,#202420);border:11px solid #242925;border-radius:8px;padding:14px 16px 16px;box-shadow:0 5px 0 #161916,0 9px 22px rgba(0,0,0,.15);position:relative}
+.real-lcd:before{content:"LCD2004";position:absolute;left:10px;top:-10px;color:#bfc5bf;font:700 9px Arial,sans-serif;letter-spacing:.1em}
+.real-screen{background:#9fc26b;border:4px solid #18251d;border-radius:3px;padding:8px 10px;box-shadow:inset 0 0 16px rgba(40,70,20,.18)}
+.real-grid{display:grid;grid-template-columns:repeat(20,1fr);grid-template-rows:repeat(4,1fr);width:100%;aspect-ratio:20/4}
+.real-char{display:flex;align-items:center;justify-content:center;color:#142016;font:700 27px/1 "Courier New",monospace;min-width:0;overflow:hidden}
+.real-pins{display:flex;justify-content:flex-end;gap:5px;margin-top:8px}.real-pins i{width:7px;height:7px;border-radius:50%;background:#0f1110;display:block;box-shadow:0 1px 1px rgba(255,255,255,.14)}
+.real-label{display:flex;justify-content:space-between;color:#9ea59f;font:9px Arial,sans-serif;margin-top:5px}
+
+
+/* Figura 2×2: A/B arriba, C/D abajo */
+.chars{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(130px,1fr));
+  grid-template-rows:auto auto;
+  gap:18px 24px;
+  max-width:430px;
+}
+.char{
+  text-align:center;
+}
+.char-title{
+  font-size:12px;font-weight:700;margin-bottom:7px
+}
+.char .pixels{
+  margin-left:auto;margin-right:auto;
+}
+.figure-preview-label{
+  font-size:12px;color:var(--muted);margin-top:16px;margin-bottom:7px
+}
+.final-composition{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:1px;
+  width:160px;
+  height:128px;
+  background:#243328;
+  border:7px solid var(--lcd);
+  border-radius:7px;
+  padding:3px;
+}
+.final-char{
+  background:#a9c978;
+  position:relative;
+  display:grid;
+  grid-template-columns:repeat(5,1fr);
+  grid-template-rows:repeat(8,1fr);
+  min-width:0;
+}
+.final-char-dot{
+  background:transparent;
+}
+.final-char-dot.on{
+  background:#1d2b20;
+}
+.final-char-label{
+  position:absolute;
+  left:3px;top:2px;
+  color:rgba(30,45,33,.55);
+  font:700 9px Arial,sans-serif;
+  pointer-events:none;
+}
+.real-custom{
+  display:grid!important;
+  grid-template-columns:repeat(5,1fr);
+  grid-template-rows:repeat(8,1fr);
+  padding:5px;
+}
+.real-custom .rcdot{background:transparent}
+.real-custom .rcdot.on{background:#172419}
+
+
+/* Custom glyphs inside the simulated LCD */
+.real-char.custom-glyph{
+  display:grid!important;
+  grid-template-columns:repeat(5,1fr);
+  grid-template-rows:repeat(8,1fr);
+  padding:3px;
+  line-height:0;
+  font-size:0;
+}
+.real-char.custom-glyph .glyph-dot{display:block;background:transparent;width:100%;height:100%;}
+.real-char.custom-glyph .glyph-dot.on{background:#172419;}
+
+</style>
+</head>
+<body>
+<main>
+  <div class="brand">▦ Laboratorio LCD <span>· Innovación y futuro · 1° Medio</span></div>
+
+  <div class="kicker">ARDUINO UNO / LCD 20 × 4</div>
+  <h1>Crea tu cuento LAN.</h1>
+  <p class="intro">Escribe, diseña y prueba tu historia antes de programarla.</p>
+
+  <section class="section">
+    <div class="section-head"><span class="num">01</span><h2>Pantalla de inicio</h2></div>
+    <p class="desc">Una sola vez · Se muestra al encender o reiniciar Arduino.</p>
+    <div id="start-editor" class="start-editor"></div>
+  </section>
+
+  <section class="section">
+    <div class="section-head"><span class="num">02</span><h2>Pantallas del cuento</h2></div>
+    <p class="desc">Diseña cada escena directamente sobre una pantalla LCD 20 × 4. Se muestran en orden y se repiten después de la figura final.</p>
+    <div id="tabs" class="tabs"></div>
+    <div id="editor"></div>
+    <div class="row">
+      <button id="add">＋ Agregar pantalla</button>
+      <button id="remove" class="danger">− Eliminar última</button>
+      <span id="count" class="small"></span>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head"><span class="num">03</span><h2>Tu figura final</h2></div>
+    <p class="desc">4 caracteres · cada uno de 5 × 8 puntos · A y B arriba, C y D abajo.</p>
+    <div id="chars" class="chars"></div>
+    <div class="hint">Diseña cada carácter. La disposición es A-B arriba y C-D abajo; la misma figura aparecerá en el simulador.</div>
+
+    <div class="figure-preview-label">Vista previa de la figura 2 × 2</div>
+    <div id="figure" class="final-composition"></div>
+    <div class="hint">Esta misma figura aparecerá centrada en el simulador.</div>
+  </section>
+
+  <section class="section">
+    <div class="section-head"><span class="num">04</span><h2>Tu simulación</h2></div>
+    <p class="desc">Prueba toda la rutina como si estuviera funcionando en un LCD 20 × 4 real.</p>
+    <div class="simulator">
+      <div class="real-lcd">
+        <div class="real-screen"><div id="sim" class="real-grid"></div></div>
+        <div class="real-pins"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="real-label"><span>HD44780 · 20×4</span><span>5V</span></div>
+      </div>
+      <div class="row">
+        <button id="run" class="primary">Simular cuento</button>
+        <button id="stop">Pausar</button>
+        <button id="restart">Reiniciar</button>
+      </div>
+      <div id="status" class="status">Lista para probar.</div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head"><span class="num">05</span><h2>Código para Arduino</h2></div>
+    <p class="desc">Genera el programa cuando tu cuento esté terminado.</p>
+    <div class="code-note">
+      Dirección I2C: <select id="addr">
+        <option value="0x27">0x27</option>
+        <option value="0x3F">0x3F</option>
+      </select>
+      · UNO: SDA → A4 · SCL → A5 · VCC → 5V · GND → GND.
+    </div>
+    <div class="row">
+      <button id="makeCode" class="primary">Simular y generar código</button>
+      <button id="copy">Copiar código</button>
+    </div>
+    <pre id="code">Completa tu cuento y presiona «Simular y generar código».</pre>
+  </section>
+
+  <div class="footer">Una casilla = un carácter. Cada fila admite 20 caracteres. La figura final utiliza cuatro caracteres personalizados de 5 × 8.</div>
+</main>
+
+<script>
+(function(){
+"use strict";
+
+const scenes=[{text:"Esta es la primera pantalla, puedes agregar más",ms:2000}];
+let chars=Array.from({length:4},()=>Array.from({length:8},()=>Array(5).fill(0)));
+let current=0,timer=null,running=false;
+
+function makeLines(text){
+  const src=String(text||"").replace(/\r/g,"").split("\n"),out=[];
+  for(const part of src){
+    let s=part;
+    while(s.length>20){out.push(s.slice(0,20));s=s.slice(20)}
+    out.push(s)
+  }
+  while(out.length<4)out.push("");
+  return out.slice(0,4)
+}
+function center(s){
+  s=String(s||"").slice(0,20);
+  const left=Math.floor((20-s.length)/2);
+  return " ".repeat(left)+s+" ".repeat(20-left-s.length)
+}
+function drawLCD(el,lines,centerFirst=false){
+  el.innerHTML="";
+  let a=lines.slice(0,4);
+  while(a.length<4)a.push("");
+  for(let i=0;i<4;i++){
+    const d=document.createElement("div");
+    d.className="lcdline";
+    d.textContent=(centerFirst&&i===0)?center(a[i]):a[i].slice(0,20).padEnd(20," ");
+    el.appendChild(d)
+  }
+}
+function renderStart(){
+  const host=document.getElementById("start-editor");host.innerHTML="";
+  const wrap=document.createElement("div");wrap.className="lcd-editor-wrap";
+  const grid=document.createElement("div");grid.className="lcd-coordinates";
+  const corner=document.createElement("div");corner.className="corner";grid.appendChild(corner);
+  for(let c=0;c<20;c++){const d=document.createElement("div");d.className="colnum";d.textContent=c;grid.appendChild(d)}
+  const lines=["Crea tu cuento LAN","","",""];
+  for(let r=0;r<4;r++){
+    const rn=document.createElement("div");rn.className="rownum";rn.textContent=r;grid.appendChild(rn);
+    for(let c=0;c<20;c++){
+      const cell=document.createElement("div");
+      cell.className="lcd-cell";
+      cell.contentEditable="true";
+      cell.spellcheck=false;
+      cell.dataset.row=r;cell.dataset.col=c;
+      cell.textContent=lines[r][c]||"";
+      cell.setAttribute("aria-label","Fila "+r+", columna "+c);
+      cell.addEventListener("keydown",function(ev){
+        const rr=Number(cell.dataset.row),cc=Number(cell.dataset.col);
+        if(ev.key.length===1){
+          ev.preventDefault();cell.textContent=ev.key;moveStart(rr,cc+1);syncStart();
+        }else if(ev.key==="Backspace"||ev.key==="Delete"){
+          ev.preventDefault();cell.textContent="";syncStart();
+        }else if(ev.key==="ArrowRight"){ev.preventDefault();moveStart(rr,cc+1)}
+        else if(ev.key==="ArrowLeft"){ev.preventDefault();moveStart(rr,cc-1)}
+        else if(ev.key==="ArrowDown"||ev.key==="Enter"){ev.preventDefault();moveStart(rr+1,cc)}
+        else if(ev.key==="ArrowUp"){ev.preventDefault();moveStart(rr-1,cc)}
+      });
+      cell.addEventListener("input",function(){cell.textContent=(cell.textContent||"").slice(0,1);syncStart()});
+      grid.appendChild(cell);
+    }
+  }
+  wrap.appendChild(grid);host.appendChild(wrap);
+  const meta=document.createElement("div");meta.className="screen-meta";meta.textContent="Fila 0: 17/20 · Fila 1: 0/20 · Fila 2: 0/20 · Fila 3: 0/20";host.appendChild(meta);
+  const duration=document.createElement("div");duration.className="duration-line";duration.innerHTML="<span>Duración</span>";
+  const n=document.createElement("input");n.type="number";n.min=100;n.max=600000;n.step=100;n.value=2000;n.id="start-ms";duration.appendChild(n);
+  const unit=document.createElement("span");unit.className="duration-unit";unit.textContent="milisegundos";duration.appendChild(unit);host.appendChild(duration);
+  function moveStart(r,c){if(c>=20){c=0;r++}if(c<0){c=19;r--}if(r<0||r>3)return;const x=grid.querySelector('.lcd-cell[data-row="'+r+'"][data-col="'+c+'"]');if(x)x.focus()}
+  function syncStart(){let out=[];for(let r=0;r<4;r++){let line="";for(let c=0;c<20;c++){const x=grid.querySelector('.lcd-cell[data-row="'+r+'"][data-col="'+c+'"]');line+=(x&&x.textContent)?x.textContent[0]:" "}out.push(line.replace(/\s+$/, ""))}window.startScreenText=out.join("\n");meta.textContent=out.map((line,i)=>"Fila "+i+": "+line.length+"/20").join(" · ")}
+  syncStart();
+}
+
+function renderTabs(){
+  const t=document.getElementById("tabs");t.innerHTML="";
+  scenes.forEach((s,i)=>{
+    const b=document.createElement("button");
+    b.textContent="Pantalla "+(i+1);
+    if(i===current)b.className="active";
+    b.onclick=()=>{current=i;renderTabs();renderEditor()};
+    t.appendChild(b)
+  });
+  document.getElementById("count").textContent=scenes.length+" de 10"
+}
+function renderEditor(){
+  const e=document.getElementById("editor");
+  e.innerHTML="";
+  const s=scenes[current];
+
+  const box=document.createElement("div");
+  box.className="screen-editor";
+
+  const head=document.createElement("div");
+  head.className="screen-editor-head";
+
+  const title=document.createElement("div");
+  title.innerHTML="<strong>Pantalla "+(current+1)+"</strong>";
+  head.appendChild(title);
+
+  const badge=document.createElement("div");
+  badge.className="screen-badge";
+  badge.textContent="Parte del loop";
+  head.appendChild(badge);
+  box.appendChild(head);
+
+  const hint=document.createElement("div");
+  hint.className="small";
+  hint.style.marginBottom="12px";
+  hint.textContent="Escribe directamente sobre la pantalla. Cada posición corresponde a un carácter del LCD 20 × 4.";
+  box.appendChild(hint);
+
+  const wrap=document.createElement("div");
+  wrap.className="lcd-editor-wrap";
+
+  const grid=document.createElement("div");
+  grid.className="lcd-coordinates";
+
+  const corner=document.createElement("div");
+  corner.className="corner";
+  grid.appendChild(corner);
+
+  for(let c=0;c<20;c++){
+    const d=document.createElement("div");
+    d.className="colnum";
+    d.textContent=c;
+    grid.appendChild(d);
+  }
+
+  const lines=makeLines(s.text);
+  while(lines.length<4)lines.push("");
+
+  const values=[];
+  for(let r=0;r<4;r++){
+    const rn=document.createElement("div");
+    rn.className="rownum";
+    rn.textContent=r;
+    grid.appendChild(rn);
+
+    for(let c=0;c<20;c++){
+      const cell=document.createElement("div");
+      cell.className="lcd-cell";
+      cell.contentEditable="true";
+      cell.spellcheck=false;
+      cell.dataset.row=r;
+      cell.dataset.col=c;
+      cell.textContent=(lines[r]||"")[c]||"";
+
+      cell.addEventListener("focus",()=>document.execCommand("selectAll",false,null));
+      cell.addEventListener("keydown",(ev)=>{
+        if(ev.key.length===1){
+          ev.preventDefault();
+          cell.textContent=ev.key;
+          moveCell(r,c+1);
+          updateSceneFromGrid();
+        }else if(ev.key==="Backspace" || ev.key==="Delete"){
+          ev.preventDefault();
+          cell.textContent="";
+          updateSceneFromGrid();
+        }else if(ev.key==="ArrowRight"){ev.preventDefault();moveCell(r,c+1)}
+        else if(ev.key==="ArrowLeft"){ev.preventDefault();moveCell(r,c-1)}
+        else if(ev.key==="ArrowDown"){ev.preventDefault();moveCell(r+1,c)}
+        else if(ev.key==="ArrowUp"){ev.preventDefault();moveCell(r-1,c)}
+        else if(ev.key==="Enter"){ev.preventDefault();moveCell(r+1,c)}
+      });
+      cell.addEventListener("input",()=>{cell.textContent=(cell.textContent||"").slice(0,1);updateSceneFromGrid()});
+      grid.appendChild(cell);
+      values.push(cell);
+    }
+  }
+
+  wrap.appendChild(grid);
+  box.appendChild(wrap);
+
+  const meta=document.createElement("div");
+  meta.className="screen-meta";
+  meta.id="screen-meta";
+  box.appendChild(meta);
+
+  const duration=document.createElement("div");
+  duration.className="duration-line";
+  duration.innerHTML="<span>Duración</span>";
+
+  const n=document.createElement("input");
+  n.type="number"; n.min=100; n.max=600000; n.step=100; n.value=s.ms;
+  duration.appendChild(n);
+
+  const unit=document.createElement("span");
+  unit.className="duration-unit";
+  unit.textContent="milisegundos";
+  duration.appendChild(unit);
+  box.appendChild(duration);
+
+  e.appendChild(box);
+
+  function moveCell(r,c){
+    if(c>=20){c=0;r++}
+    if(c<0){c=19;r--}
+    if(r<0||r>3)return;
+    const target=grid.querySelector('.lcd-cell[data-row="'+r+'"][data-col="'+c+'"]');
+    if(target)target.focus();
+  }
+
+  function updateSceneFromGrid(){
+    let out=[];
+    for(let r=0;r<4;r++){
+      let line="";
+      for(let c=0;c<20;c++){
+        const cell=grid.querySelector('.lcd-cell[data-row="'+r+'"][data-col="'+c+'"]');
+        line += (cell && cell.textContent) ? cell.textContent[0] : " ";
+      }
+      out.push(line.replace(/\s+$/,""));
+    }
+    s.text=out.join("\n");
+    const counts=[];
+    for(let r=0;r<4;r++){
+      const line=out[r];
+      counts.push("Fila "+r+": "+line.length+"/20");
+    }
+    meta.textContent=counts.join(" · ");
+  }
+
+  function updateDuration(){
+    let v=Number(n.value);
+    if(!Number.isFinite(v)||v<100)v=100;
+    if(v>600000)v=600000;
+    s.ms=v;
+    n.value=v;
+  }
+  n.addEventListener("input",updateDuration);
+  updateSceneFromGrid();
+}
+function makeCharacterGrid(target, idx, prefix){
+  target.innerHTML="";
+  for(let r=0;r<8;r++){
+    for(let c=0;c<5;c++){
+      const dot=document.createElement("span");
+      dot.className=(chars[idx][r][c]?"pixel on":"pixel");
+      if(prefix==="final"){
+        dot.className=chars[idx][r][c]?"final-char-dot on":"final-char-dot";
+      }else if(prefix==="real"){
+        dot.className=chars[idx][r][c]?"rcdot on":"rcdot";
+      }
+      target.appendChild(dot);
+    }
+  }
+}
+
+function renderChars(){
+  const c=document.getElementById("chars");
+  c.innerHTML="";
+  for(let idx=0;idx<4;idx++){
+    const wrap=document.createElement("div");
+
+    const title=document.createElement("div");
+    title.className="char-title";
+    title.textContent="Carácter "+String.fromCharCode(65+idx);
+    wrap.appendChild(title);
+
+    const g=document.createElement("div");
+    g.className="pixels";
+
+    for(let r=0;r<8;r++){
+      for(let col=0;col<5;col++){
+        const p=document.createElement("button");
+        p.className="pixel"+(chars[idx][r][col]?" on":"");
+        p.type="button";
+        p.title="Fila "+(r+1)+" · Columna "+(col+1);
+        p.onclick=()=>{
+          chars[idx][r][col]^=1;
+          p.classList.toggle("on");
+          renderFigure();
+          if(running) showFigure();
+        };
+        g.appendChild(p);
+      }
+    }
+    wrap.appendChild(g);
+
+    const clear=document.createElement("button");
+    clear.type="button";
+    clear.textContent="Borrar";
+    clear.style.marginTop="6px";
+    clear.onclick=()=>{
+      chars[idx]=Array.from({length:8},()=>Array(5).fill(0));
+      renderChars();
+      renderFigure();
+      if(running) showFigure();
+    };
+    wrap.appendChild(clear);
+
+    c.appendChild(wrap);
+  }
+}
+
+function renderFigure(){
+  const g=document.getElementById("figure");
+  g.innerHTML="";
+  for(let idx=0;idx<4;idx++){
+    const ch=document.createElement("div");
+    ch.className="final-char";
+
+    for(let r=0;r<8;r++){
+      for(let c=0;c<5;c++){
+        const dot=document.createElement("span");
+        dot.className=chars[idx][r][c]?"final-char-dot on":"final-char-dot";
+        ch.appendChild(dot);
+      }
+    }
+
+
+    g.appendChild(ch);
+  }
+}
+function appendLCDCharacter(container, ch){
+  const d=document.createElement("div");
+  d.className="real-char";
+  if(typeof ch === "number" && ch>=0 && ch<4){
+    d.className="real-char custom-glyph";
+    for(let r=0;r<8;r++){
+      for(let c=0;c<5;c++){
+        const dot=document.createElement("span");
+        dot.className="glyph-dot"+(chars[ch][r][c] ? " on" : "");
+        d.appendChild(dot);
+      }
+    }
+  }else{
+    d.textContent=String(ch ?? " ");
+  }
+  container.appendChild(d);
+}
+
+function drawRealLCD(lines){
+  const el=document.getElementById("sim");
+  el.innerHTML="";
+  const a=lines.slice(0,4);
+  while(a.length<4)a.push("");
+  for(let r=0;r<4;r++){
+    const line=String(a[r]||"").slice(0,20).padEnd(20," ");
+    for(let c=0;c<20;c++) appendLCDCharacter(el,line[c]);
+  }
+}
+
+function showFigure(){
+  const el=document.getElementById("sim");
+  el.innerHTML="";
+  // 20 x 4 LCD. Figure occupies rows 1-2 and columns 9-10.
+  for(let r=0;r<4;r++){
+    for(let c=0;c<20;c++){
+      let custom=-1;
+      if(r===1 && c===9) custom=0;
+      else if(r===1 && c===10) custom=1;
+      else if(r===2 && c===9) custom=2;
+      else if(r===2 && c===10) custom=3;
+      if(custom>=0) appendLCDCharacter(el,custom);
+      else appendLCDCharacter(el," ");
+    }
+  }
+  document.getElementById("status").textContent="Figura final · momento final del loop";
+}
+function showScene(i){drawRealLCD(makeLines(scenes[i].text));document.getElementById("status").textContent="Pantalla "+(i+1)+" de "+scenes.length+" · "+scenes[i].ms+" ms"}
+function showStart(){drawRealLCD(makeLines(window.startScreenText||"Crea tu cuento LAN"));document.getElementById("status").textContent="Pantalla de inicio · 2000 ms"}
+
+function stop(){
+  running=false;
+  if(timer){clearTimeout(timer);timer=null}
+  document.getElementById("status").textContent="Simulación pausada."
+}
+function simulate(){
+  stop();running=true;let phase="start",i=0;
+  function next(){
+    if(!running)return;
+    if(phase==="start"){showStart();phase="loop";timer=setTimeout(next,Math.max(100,Number(document.getElementById("start-ms")?.value)||2000));return}
+    if(i<scenes.length){showScene(i);const wait=Math.max(100,Number(scenes[i].ms)||100);i++;timer=setTimeout(next,wait)}
+    else{showFigure();timer=setTimeout(()=>{if(running){phase="start";i=0;next()}},2000)}
+  }
+  next()
+}
+function restart(){
+  stop();showStart();
+  document.getElementById("status").textContent="Reiniciado en la pantalla de inicio."
+}
+function bytes(idx){
+  const out=[];
+  for(let r=0;r<8;r++){
+    let n=0;
+    for(let c=0;c<5;c++)if(chars[idx][r][c])n|=1<<(4-c);
+    out.push(n)
+  }
+  return out
+}
+function clean(s){
+  return String(s).normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .replace(/ñ/gi,"n").replace(/[^a-zA-Z0-9 .,;:!?()\-_/]/g,"?")
+}
+function generate(){
+  const addr=document.getElementById("addr").value;
+  let q=[
+    "#include <Wire.h>",
+    "#include <LiquidCrystal_I2C.h>",
+    "",
+    "LiquidCrystal_I2C lcd("+addr+", 20, 4);",""
+  ];
+  for(let i=0;i<4;i++)
+    q.push("byte caracter"+String.fromCharCode(65+i)+"[8] = {"+bytes(i).join(", ")+"};");
+
+  q.push("",
+    "void mostrarFigura(){",
+    "  lcd.clear();",
+    "  lcd.setCursor(9,1); lcd.write(byte(0)); lcd.write(byte(1));",
+    "  lcd.setCursor(9,2); lcd.write(byte(2)); lcd.write(byte(3));",
+    "}",
+    "",
+    "void setup(){",
+    "  lcd.init();",
+    "  lcd.backlight();"
+  );
+  for(let i=0;i<4;i++)
+    q.push("  lcd.createChar("+i+", caracter"+String.fromCharCode(65+i)+");");
+  q.push("}",
+    "",
+    "void loop(){",
+    '  lcd.clear(); lcd.setCursor(1,1); lcd.print("Crea tu cuento LAN"); delay(2000);'
+  );
+  scenes.forEach(s=>{
+    const ls=makeLines(clean(s.text));
+    q.push("  lcd.clear();");
+    ls.forEach((line,z)=>{
+      if(line)q.push('  lcd.setCursor(0,'+z+'); lcd.print("'+line.replace(/\\/g,"\\\\").replace(/"/g,'\\"')+'");');
+    });
+    q.push("  delay("+Math.max(100,Number(s.ms)||100)+");")
+  });
+  q.push("  mostrarFigura();","  delay(2000);","}");
+  document.getElementById("code").textContent=q.join("\n")
+}
+
+document.getElementById("add").onclick=()=>{
+  if(scenes.length>=10)return;
+  scenes.push({text:"Nueva pantalla del cuento",ms:2000});
+  current=scenes.length-1;renderTabs();renderEditor()
+};
+document.getElementById("remove").onclick=()=>{
+  if(scenes.length<=1)return;
+  scenes.pop();current=Math.min(current,scenes.length-1);
+  renderTabs();renderEditor()
+};
+document.getElementById("run").onclick=simulate;
+document.getElementById("stop").onclick=stop;
+document.getElementById("restart").onclick=restart;
+document.getElementById("makeCode").onclick=generate;
+document.getElementById("copy").onclick=async()=>{
+  try{
+    await navigator.clipboard.writeText(document.getElementById("code").textContent);
+    document.getElementById("status").textContent="Código copiado."
+  }catch(e){
+    document.getElementById("status").textContent="Selecciona y copia el código manualmente."
+  }
+};
+
+renderStart();renderTabs();renderEditor();renderChars();renderFigure();showStart();
+})();
+</script>
+</body>
+</html>
