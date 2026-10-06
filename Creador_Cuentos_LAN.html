@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Creador de Cuentos LAN</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#eef2ee;color:#18201b}
+.container{max-width:1100px;margin:0 auto;padding:20px}
+header{display:flex;justify-content:space-between;align-items:center;gap:15px;flex-wrap:wrap;margin-bottom:18px}
+h1{font-size:26px;margin:0 0 5px}
+.subtitle{color:#667169}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.panel{background:#f9fbf9;border:1px solid #d4dbd5;border-radius:14px;padding:16px}
+.full{grid-column:1/-1}
+h2{font-size:18px;margin:0 0 12px}
+button{min-height:42px;padding:9px 13px;border:1px solid #bbc6be;border-radius:9px;background:white;color:#18201b;font-weight:bold;cursor:pointer}
+button:hover{background:#edf3ee}
+button.primary{background:#286b3c;color:white;border-color:#286b3c}
+button.active{background:#dcecdf;border-color:#71977b}
+button:disabled{opacity:.45;cursor:not-allowed}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+label{display:block;font-size:14px;font-weight:bold;margin:10px 0 5px}
+textarea,input[type=number]{width:100%;padding:10px;border:1px solid #c5cec7;border-radius:8px;background:white;font-size:16px}
+textarea{min-height:100px;resize:vertical;font-family:monospace}
+.lcd{background:#0b160e;color:#9cff8f;border-radius:11px;padding:14px;font:700 16px/1.35 monospace;box-shadow:inset 0 0 0 2px #26382a;overflow:auto}
+.lcdline{width:20ch;height:1.35em;white-space:pre;margin:auto}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.status,.hint{font-size:14px;color:#667169;margin-top:8px}
+.chars{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.char{background:white;border:1px solid #d4dbd5;border-radius:10px;padding:10px;text-align:center}
+.pixels{display:grid;grid-template-columns:repeat(5,16px);grid-template-rows:repeat(8,16px);gap:2px;width:max-content;margin:9px auto;padding:5px;background:#18251b;border-radius:6px}
+.pixel{width:16px!important;height:16px!important;min-height:16px!important;padding:0!important;border:0!important;border-radius:2px;background:#29372c!important}
+.pixel.on{background:#9cff8f!important}
+.simbox{display:flex;align-items:center;justify-content:center;min-height:180px}
+pre{background:#111714;color:#e6f1e8;border-radius:9px;padding:14px;white-space:pre-wrap;overflow:auto;max-height:420px;font:13px/1.45 monospace}
+@media(max-width:700px){.grid{grid-template-columns:1fr}.full{grid-column:auto}.chars{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<div>
+<h1>📖 Creador de Cuentos LAN</h1>
+<div class="subtitle">LCD 20×4 · hasta 10 pantallas · figura final 2×2</div>
+</div>
+<div class="actions">
+<button id="run" class="primary">▶ Simular cuento</button>
+<button id="makeCode">&lt;/&gt; Generar código</button>
+</div>
+</header>
+
+<div class="grid">
+<section class="panel">
+<h2>1. Pantalla de inicio</h2>
+<div id="start" class="lcd"></div>
+<div class="hint">Pantalla inicial fija.</div>
+</section>
+
+<section class="panel">
+<h2>2. Loop del cuento</h2>
+<div id="tabs" class="tabs"></div>
+<div id="editor"></div>
+<div class="actions">
+<button id="add">＋ Agregar pantalla</button>
+<button id="remove">− Eliminar última</button>
+</div>
+<div id="count" class="status"></div>
+</section>
+
+<section class="panel">
+<h2>3. Figura final 2×2</h2>
+<div class="hint">Cada carácter tiene 5×8 puntos. Los cuatro caracteres forman la figura final.</div>
+<div id="chars" class="chars"></div>
+</section>
+
+<section class="panel">
+<h2>4. Simulador</h2>
+<div class="simbox"><div id="sim" class="lcd" style="width:100%"></div></div>
+<div class="actions">
+<button id="stop">■ Detener</button>
+<button id="restart">↻ Reiniciar</button>
+</div>
+<div id="status" class="status">Listo.</div>
+</section>
+
+<section class="panel full">
+<h2>5. Código Arduino</h2>
+<div class="hint">Arduino UNO + LCD 20×4 I2C, dirección 0x27.</div>
+<pre id="code">Presiona “Generar código” para obtener el programa.</pre>
+</section>
+</div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+const scenes=[{text:"Esta es la primera pantalla, puedes agregar más",ms:2000}];
+const chars=Array.from({length:4},()=>Array.from({length:8},()=>Array(5).fill(0)));
+let current=0,timer=null,running=false;
+
+function makeLines(text){
+  const src=String(text||"").replace(/\r/g,"").split("\n");
+  const out=[];
+  for(const part of src){
+    let s=part;
+    while(s.length>20){out.push(s.substring(0,20));s=s.substring(20);}
+    out.push(s);
+  }
+  while(out.length<4)out.push("");
+  return out.slice(0,4);
+}
+
+function center(s){
+  s=String(s||"").substring(0,20);
+  const left=Math.floor((20-s.length)/2);
+  return " ".repeat(left)+s+" ".repeat(20-left-s.length);
+}
+
+function drawLCD(el,lines,firstCenter=false){
+  el.innerHTML="";
+  const a=lines.slice(0,4);
+  while(a.length<4)a.push("");
+  for(let i=0;i<4;i++){
+    const d=document.createElement("div");
+    d.className="lcdline";
+    d.textContent=(firstCenter&&i===0)?center(a[i]):a[i].substring(0,20).padEnd(20," ");
+    el.appendChild(d);
+  }
+}
+
+function renderStart(){
+  drawLCD(document.getElementById("start"),["Crea tu cuento LAN","","",""],true);
+}
+
+function renderTabs(){
+  const t=document.getElementById("tabs");
+  t.innerHTML="";
+  scenes.forEach((s,i)=>{
+    const b=document.createElement("button");
+    b.type="button";
+    b.textContent="Pantalla "+(i+1);
+    if(i===current)b.className="active";
+    b.addEventListener("click",()=>{current=i;renderTabs();renderEditor();});
+    t.appendChild(b);
+  });
+  document.getElementById("count").textContent=scenes.length+" de 10 pantallas utilizadas.";
+}
+
+function renderEditor(){
+  const e=document.getElementById("editor");
+  e.innerHTML="";
+  const s=scenes[current];
+
+  const label=document.createElement("label");
+  label.textContent="Texto de la pantalla (máximo 4 líneas × 20 caracteres)";
+  e.appendChild(label);
+
+  const ta=document.createElement("textarea");
+  ta.value=s.text;
+  e.appendChild(ta);
+
+  const label2=document.createElement("label");
+  label2.textContent="Duración en milisegundos";
+  e.appendChild(label2);
+
+  const n=document.createElement("input");
+  n.type="number"; n.min="100"; n.max="600000"; n.step="100"; n.value=s.ms;
+  e.appendChild(n);
+
+  const preview=document.createElement("div");
+  preview.className="lcd";
+  preview.style.marginTop="10px";
+  e.appendChild(preview);
+
+  function update(){
+    s.text=ta.value;
+    let v=Number(n.value);
+    if(!Number.isFinite(v)||v<100)v=100;
+    if(v>600000)v=600000;
+    s.ms=v;
+    drawLCD(preview,makeLines(s.text));
+  }
+  ta.addEventListener("input",update);
+  n.addEventListener("input",update);
+  update();
+}
+
+function renderChars(){
+  const c=document.getElementById("chars");
+  c.innerHTML="";
+  for(let idx=0;idx<4;idx++){
+    const box=document.createElement("div");
+    box.className="char";
+
+    const title=document.createElement("strong");
+    title.textContent="Carácter "+String.fromCharCode(65+idx);
+    box.appendChild(title);
+
+    const g=document.createElement("div");
+    g.className="pixels";
+
+    for(let r=0;r<8;r++){
+      for(let col=0;col<5;col++){
+        const p=document.createElement("button");
+        p.type="button";
+        p.className="pixel"+(chars[idx][r][col]?" on":"");
+        p.addEventListener("click",()=>{
+          chars[idx][r][col]=chars[idx][r][col]?0:1;
+          p.classList.toggle("on");
+        });
+        g.appendChild(p);
+      }
+    }
+    box.appendChild(g);
+
+    const clear=document.createElement("button");
+    clear.type="button";
+    clear.textContent="Limpiar";
+    clear.addEventListener("click",()=>{
+      chars[idx]=Array.from({length:8},()=>Array(5).fill(0));
+      renderChars();
+    });
+    box.appendChild(clear);
+    c.appendChild(box);
+  }
+}
+
+function showScene(i){
+  drawLCD(document.getElementById("sim"),makeLines(scenes[i].text));
+  document.getElementById("status").textContent="Pantalla "+(i+1)+" de "+scenes.length+" · "+scenes[i].ms+" ms";
+}
+
+function showFigure(){
+  const el=document.getElementById("sim");
+  el.innerHTML="";
+  for(let r=0;r<4;r++){
+    let line="";
+    for(let c=0;c<10;c++){
+      const block=c<5?0:1;
+      const col=c<5?c:c-5;
+      line+=chars[block][r+2][col]?"█":" ";
+    }
+    const d=document.createElement("div");
+    d.className="lcdline";
+    d.textContent=center(line);
+    el.appendChild(d);
+  }
+  document.getElementById("status").textContent="Figura final · fin del cuento";
+}
+
+function stop(){
+  running=false;
+  if(timer){clearTimeout(timer);timer=null;}
+  document.getElementById("status").textContent="Simulación detenida.";
+}
+
+function simulate(){
+  stop();
+  running=true;
+  let i=0;
+  function next(){
+    if(!running)return;
+    if(i<scenes.length){
+      showScene(i);
+      const wait=Math.max(100,Number(scenes[i].ms)||100);
+      i++;
+      timer=setTimeout(next,wait);
+    }else{
+      showFigure();
+      timer=setTimeout(()=>{if(running){i=0;next();}},2000);
+    }
+  }
+  next();
+}
+
+function restart(){
+  stop();
+  showScene(0);
+  document.getElementById("status").textContent="Reiniciado en la primera pantalla.";
+}
+
+function bytes(idx){
+  const out=[];
+  for(let r=0;r<8;r++){
+    let n=0;
+    for(let c=0;c<5;c++)if(chars[idx][r][c])n|=(1<<(4-c));
+    out.push(n);
+  }
+  return out;
+}
+
+function generate(){
+  const q=[];
+  q.push("#include <Wire.h>");
+  q.push("#include <LiquidCrystal_I2C.h>");
+  q.push("");
+  q.push("LiquidCrystal_I2C lcd(0x27, 20, 4);");
+  q.push("");
+
+  for(let i=0;i<4;i++){
+    q.push("byte caracter"+String.fromCharCode(65+i)+"[8] = {"+bytes(i).join(", ")+"};");
+  }
+
+  q.push("");
+  q.push("void mostrarFigura(){");
+  q.push("  lcd.clear();");
+  q.push("  lcd.setCursor(7,1); lcd.write(byte(0)); lcd.write(byte(1));");
+  q.push("  lcd.setCursor(7,2); lcd.write(byte(2)); lcd.write(byte(3));");
+  q.push("}");
+  q.push("");
+  q.push("void setup(){");
+  q.push("  lcd.init();");
+  q.push("  lcd.backlight();");
+  for(let i=0;i<4;i++)q.push("  lcd.createChar("+i+", caracter"+String.fromCharCode(65+i)+");");
+  q.push("}");
+  q.push("");
+  q.push("void loop(){");
+  q.push('  lcd.clear(); lcd.setCursor(1,1); lcd.print("Crea tu cuento LAN"); delay(2000);');
+
+  scenes.forEach(s=>{
+    const lines=makeLines(s.text);
+    q.push("  lcd.clear();");
+    lines.forEach((line,z)=>{
+      if(line)q.push('  lcd.setCursor(0,'+z+'); lcd.print("'+line.replace(/\\/g,"\\\\").replace(/"/g,'\\"')+'");');
+    });
+    q.push("  delay("+Math.max(100,Number(s.ms)||100)+");");
+  });
+
+  q.push("  mostrarFigura();");
+  q.push("  delay(2000);");
+  q.push("}");
+
+  document.getElementById("code").textContent=q.join("\n");
+}
+
+document.getElementById("add").addEventListener("click",()=>{
+  if(scenes.length>=10)return;
+  scenes.push({text:"Nueva pantalla del cuento",ms:2000});
+  current=scenes.length-1;
+  renderTabs();renderEditor();
+});
+
+document.getElementById("remove").addEventListener("click",()=>{
+  if(scenes.length<=1)return;
+  scenes.pop();
+  current=Math.min(current,scenes.length-1);
+  renderTabs();renderEditor();
+});
+
+document.getElementById("run").addEventListener("click",simulate);
+document.getElementById("stop").addEventListener("click",stop);
+document.getElementById("restart").addEventListener("click",restart);
+document.getElementById("makeCode").addEventListener("click",generate);
+
+renderStart();
+renderTabs();
+renderEditor();
+renderChars();
+showScene(0);
+})();
+</script>
+</body>
+</html>
